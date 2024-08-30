@@ -95,16 +95,6 @@
   )
 )
 
-;; New function to assign a role to a user
-(define-public (assign-role (user principal) (role uint))
-  (begin
-    (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
-    (asserts! (or (is-eq role (var-get ROLE_ADMIN)) (is-eq role (var-get ROLE_MANAGER)) (is-eq role (var-get ROLE_SPENDER))) ERR_INVALID_ROLE)
-    (map-set user-roles { user: user, role: role } true)
-    (ok true)
-  )
-)
-
 ;; New function to revoke a role from a user
 (define-public (revoke-role (user principal) (role uint))
   (begin
