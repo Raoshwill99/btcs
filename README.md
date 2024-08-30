@@ -2,99 +2,93 @@
 
 ## Overview
 
-This project implements a multi-signature wallet system using Clarity smart contracts on the Stacks blockchain. The system allows for customizable, decentralized custody arrangements for managing Bitcoin assets.
+This project implements a multi-signature wallet system that allows for customizable, decentralized custody arrangements using Clarity smart contracts on the Stacks blockchain. The system is designed to provide enhanced security and flexibility for managing Bitcoin assets.
 
-### Key Features
+## Features
 
 - Multi-signature wallet functionality
-- Customizable number of required signatures
-- Owner management (add/remove)
-- Transaction submission, approval, and execution
-- Built on Stacks blockchain, interacting with Bitcoin
+- Customizable number of owners (up to 5)
+- Minimum signature requirement for transaction execution
+- Transaction submission and approval process
+- Decentralized custody management
+- Time-locked transactions (NEW)
 
 ## Smart Contract Structure
 
-The main smart contract (`multi-sig-wallet`) contains the following key components:
+The main components of the smart contract include:
 
-1. Constants:
-   - `CONTRACT_OWNER`: The address that deployed the contract
-   - `MIN_SIGNATURES`: Minimum number of signatures required to execute a transaction
-   - `MAX_OWNERS`: Maximum number of wallet owners allowed
+1. Owner Management
+   - Add and remove wallet owners
+   - Track total number of owners
 
-2. Data Structures:
-   - `owners`: Map of principal addresses to boolean, representing wallet owners
-   - `pending-transactions`: Map of transaction IDs to transaction details
-   - `transaction-id`: Non-fungible token for unique transaction IDs
+2. Transaction Management
+   - Submit new transactions (now with time-locking)
+   - Approve pending transactions
+   - Execute transactions with sufficient approvals and after time-lock expiry
+   - Cancel time-locked transactions (NEW)
 
-3. Main Functions:
-   - `add-owner`: Add a new owner to the wallet
-   - `remove-owner`: Remove an existing owner from the wallet
-   - `submit-transaction`: Submit a new transaction for approval
-   - `approve-transaction`: Approve a pending transaction
-   - `execute-transaction`: Execute a transaction that has met the signature threshold
+3. Access Control
+   - Only registered owners can submit, approve, and execute transactions
+   - Contract owner has special privileges for managing owners
 
-4. Getter Functions:
-   - `get-total-owners`: Retrieve the current number of wallet owners
-   - `get-transaction`: Retrieve details of a specific transaction
+## Functions
 
-## Setup and Deployment
+### Owner Management
+- `add-owner`: Add a new owner to the wallet
+- `remove-owner`: Remove an existing owner from the wallet
 
-To deploy this smart contract:
+### Transaction Management
+- `submit-transaction`: Submit a new transaction for approval, now with a time-lock parameter
+- `approve-transaction`: Approve a pending transaction
+- `execute-transaction`: Execute a transaction that has met the approval threshold and time-lock has expired
+- `cancel-transaction`: Cancel a time-locked transaction before it becomes executable (NEW)
 
-1. Ensure you have the Stacks CLI installed and configured.
-2. Deploy the contract to the Stacks blockchain using the Stacks CLI:
+### Getters
 
-   stx deploy multi-sig-wallet.clar
-   `
+- `get-total-owners`: Get the current number of wallet owners
+- `get-transaction`: Retrieve details of a specific transaction
+- `get-current-block-height`: Get the current block height (NEW)
 
-3. Note the contract address after successful deployment.
+## Time-Locked Transactions
+
+The new time-locking feature adds an extra layer of security and flexibility to our multi-signature wallet:
+
+- Transactions can be scheduled for future execution by specifying a `lock-until` block height.
+- Transactions cannot be executed before the specified block height is reached, even if they have sufficient approvals.
+- The submitter of a time-locked transaction can cancel it before the lock period expires.
+- This feature enables use cases such as:
+  - Scheduled payments
+  - Cool-down periods for large transactions
+  - Cancellation of pending transactions if circumstances change
 
 ## Usage
 
-Interact with the deployed contract using the Stacks CLI or integrate it into your dApp:
+To interact with this smart contract, you'll need to use a Stacks wallet and have STX tokens for transaction fees. The contract can be deployed on the Stacks blockchain, after which you can interact with it using its contract address.
 
-1. Add owners:
-   `
-   stx call add-owner <new-owner-address>
-   `
-
-2. Submit a transaction:
-   `
-   stx call submit-transaction <amount> <recipient-address>
-   `
-
-3. Approve a transaction:
-   `
-   stx call approve-transaction <transaction-id>
-   `
-
-4. Execute a transaction:
-   `
-   stx call execute-transaction <transaction-id>
-   `
-
-## Security Considerations
-
-- Ensure that the `CONTRACT_OWNER` address is securely managed, as it has special privileges.
-- Carefully manage the list of owners and the `MIN_SIGNATURES` threshold to maintain the security of the wallet.
-- Always verify transaction details before approval and execution.
+When submitting a transaction, you now need to specify a `lock-until` parameter, which should be a future block height. You can use the `get-current-block-height` function to determine the current block height.
 
 ## Future Enhancements
 
 In upcoming iterations, we plan to implement:
-
-- Time-locked transactions
 - Spending limits
 - Role-based access control
 
+## Development
+
+This project is developed using Clarity, the smart contract language for the Stacks blockchain. To set up a development environment:
+
+1. Install the [Stacks CLI](https://docs.stacks.co/write-smart-contracts/clarinet)
+2. Clone this repository
+3. Use Clarinet to test and deploy the contract
+
 ## Contributing
 
-This project is under active development. Please refer to the repository's issues and pull requests for the latest status and contribution guidelines.
+Contributions to this project are welcome. Please ensure you follow the coding standards and submit pull requests for any new features or bug fixes.
 
 ## License
 
-[Insert appropriate license information here]
+[MIT License](LICENSE)
 
 ## Contact
 
-[Insert contact information or link to project repository here]
+For any queries regarding this project, please open an issue in the GitHub repository.
