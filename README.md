@@ -43,7 +43,7 @@ The main components of the smart contract include:
 
 ## Functions
 
-### Owner Management
+
 - `add-owner`: Add a new owner to the wallet (Admin only)
 - `remove-owner`: Remove an existing owner from the wallet (Admin only)
 
