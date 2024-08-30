@@ -209,3 +209,7 @@
   (ok (map-get? spending-limits owner))
 )
 
+;; New getter function for user roles
+(define-read-only (get-user-role (user principal) (role uint))
+  (ok (has-role user role))
+)
