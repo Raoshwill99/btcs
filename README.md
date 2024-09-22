@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a sophisticated multi-signature wallet system that allows for customizable, decentralized custody arrangements using Clarity smart contracts on the Stacks blockchain. The system is designed to provide enhanced security, flexibility, and granular control for managing multiple types of digital assets, including Bitcoin and various tokens.
+The Collaborative Bitcoin Custody Solution is a pioneering project in the realm of decentralized finance (DeFi) and digital asset management. Born out of the need for more secure, flexible, and transparent custody solutions in the cryptocurrency space, this project aims to bridge the gap between the decentralized nature of blockchain technologies and the complex requirements of both individual and institutional asset management.
 
 ## Features
 

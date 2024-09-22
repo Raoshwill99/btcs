@@ -1,4 +1,4 @@
-;; Multi-Signature Wallet with Time-locked Transactions, Spending Limits, RBAC, and Multiple Asset Support
+;; Multi-Signature Wallet with Time-locked Transactions, Spending Limits, RBAC, and Multiple Asset Support (MAS)
 
 ;; Define constants
 (define-constant CONTRACT_OWNER tx-sender)
