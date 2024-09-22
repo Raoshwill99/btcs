@@ -1,4 +1,4 @@
-;; Multi-Signature Wallet with Time-locked Transactions, Spending Limits, and Role-Based Access Control
+;; Multi-Signature Wallet with Time-locked Transactions, Spending Limits, RBAC, and Multiple Asset Support
 
 ;; Define constants
 (define-constant CONTRACT_OWNER tx-sender)
@@ -20,11 +20,21 @@
 (define-constant ERR_SPENDING_LIMIT_EXCEEDED (err u113))
 (define-constant ERR_INVALID_ROLE (err u114))
 (define-constant ERR_INSUFFICIENT_PERMISSIONS (err u115))
+(define-constant ERR_UNSUPPORTED_ASSET (err u116))
+(define-constant ERR_INSUFFICIENT_BALANCE (err u117))
 
 ;; Define roles
 (define-data-var ROLE_ADMIN uint u1)
 (define-data-var ROLE_MANAGER uint u2)
 (define-data-var ROLE_SPENDER uint u3)
+
+;; Define supported asset types
+(define-trait supported-asset-trait
+  (
+    (transfer (uint principal principal) (response bool uint))
+    (get-balance (principal) (response uint uint))
+  )
+)
 
 ;; Define data variables
 (define-data-var total-owners uint u0)
@@ -34,6 +44,7 @@
 (define-map pending-transactions
   uint
   {
+    asset: principal,
     amount: uint,
     to: principal,
     approvals: uint,
@@ -42,8 +53,9 @@
     submitter: principal
   }
 )
-(define-map spending-limits principal uint)
+(define-map spending-limits { owner: principal, asset: principal } uint)
 (define-map user-roles { user: principal, role: uint } bool)
+(define-map supported-assets principal bool)
 
 ;; Define non-fungible token for transaction IDs
 (define-non-fungible-token transaction-id uint)
@@ -61,7 +73,7 @@
   (has-role user (var-get ROLE_ADMIN))
 )
 
-;; Add owner function (updated with role check)
+;; Add owner function (unchanged)
 (define-public (add-owner (new-owner principal))
   (begin
     (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
@@ -73,7 +85,7 @@
   )
 )
 
-;; Remove owner function (updated with role check)
+;; Remove owner function (unchanged)
 (define-public (remove-owner (owner principal))
   (begin
     (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
@@ -85,17 +97,18 @@
   )
 )
 
-;; Set spending limit function (updated with role check)
-(define-public (set-spending-limit (owner principal) (limit uint))
+;; Set spending limit function (updated for multiple assets)
+(define-public (set-spending-limit (owner principal) (asset principal) (limit uint))
   (begin
     (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
     (asserts! (is-some (map-get? owners owner)) ERR_NOT_OWNER)
-    (map-set spending-limits owner limit)
+    (asserts! (is-some (map-get? supported-assets asset)) ERR_UNSUPPORTED_ASSET)
+    (map-set spending-limits { owner: owner, asset: asset } limit)
     (ok true)
   )
 )
 
-;; New function to assign a role to a user
+;; Assign role function (unchanged)
 (define-public (assign-role (user principal) (role uint))
   (begin
     (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
@@ -105,7 +118,7 @@
   )
 )
 
-;; New function to revoke a role from a user
+;; Revoke role function (unchanged)
 (define-public (revoke-role (user principal) (role uint))
   (begin
     (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
@@ -114,21 +127,33 @@
   )
 )
 
-;; Submit transaction function (updated with role check)
-(define-public (submit-transaction (amount uint) (to principal) (lock-until uint))
+;; New function to add supported asset
+(define-public (add-supported-asset (asset principal))
+  (begin
+    (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
+    (asserts! (contract-call? asset get-balance CONTRACT_OWNER) ERR_UNSUPPORTED_ASSET)
+    (map-set supported-assets asset true)
+    (ok true)
+  )
+)
+
+;; Submit transaction function (updated for multiple assets)
+(define-public (submit-transaction (asset principal) (amount uint) (to principal) (lock-until uint))
   (let
     (
       (tx-id (+ (var-get transaction-nonce) u1))
-      (sender-limit (default-to u0 (map-get? spending-limits tx-sender)))
+      (sender-limit (default-to u0 (map-get? spending-limits { owner: tx-sender, asset: asset })))
     )
     (asserts! (or (has-role tx-sender (var-get ROLE_MANAGER)) (has-role tx-sender (var-get ROLE_SPENDER))) ERR_UNAUTHORIZED)
     (asserts! (is-some (map-get? owners tx-sender)) ERR_NOT_OWNER)
     (asserts! (> amount u0) ERR_INVALID_AMOUNT)
     (asserts! (>= lock-until block-height) ERR_INVALID_TIMELOCK)
     (asserts! (<= amount sender-limit) ERR_SPENDING_LIMIT_EXCEEDED)
+    (asserts! (is-some (map-get? supported-assets asset)) ERR_UNSUPPORTED_ASSET)
     (try! (nft-mint? transaction-id tx-id tx-sender))
     (map-set pending-transactions tx-id
       {
+        asset: asset,
         amount: amount,
         to: to,
         approvals: u1,
@@ -142,7 +167,7 @@
   )
 )
 
-;; Approve transaction function (updated with role check)
+;; Approve transaction function (unchanged)
 (define-public (approve-transaction (tx-id uint))
   (let
     (
@@ -158,18 +183,20 @@
   )
 )
 
-;; Execute transaction function (updated with role check)
+;; Execute transaction function (updated for multiple assets)
 (define-public (execute-transaction (tx-id uint))
   (let
     (
       (tx (unwrap! (map-get? pending-transactions tx-id) ERR_TX_NOT_FOUND))
+      (asset-contract (contract-call? (get asset tx) get-balance CONTRACT_OWNER))
     )
     (asserts! (or (has-role tx-sender (var-get ROLE_ADMIN)) (has-role tx-sender (var-get ROLE_MANAGER))) ERR_UNAUTHORIZED)
     (asserts! (is-some (map-get? owners tx-sender)) ERR_NOT_OWNER)
     (asserts! (not (get executed tx)) ERR_ALREADY_EXECUTED)
     (asserts! (>= (get approvals tx) MIN_SIGNATURES) ERR_INSUFFICIENT_APPROVALS)
     (asserts! (>= block-height (get lock-until tx)) ERR_TIMELOCK_NOT_EXPIRED)
-    (try! (stx-transfer? (get amount tx) (as-contract tx-sender) (get to tx)))
+    (asserts! (>= (unwrap! asset-contract ERR_UNSUPPORTED_ASSET) (get amount tx)) ERR_INSUFFICIENT_BALANCE)
+    (try! (contract-call? (get asset tx) transfer (get amount tx) CONTRACT_OWNER (get to tx)))
     (map-set pending-transactions tx-id
       (merge tx { executed: true })
     )
@@ -177,7 +204,7 @@
   )
 )
 
-;; Cancel transaction function (updated with role check)
+;; Cancel transaction function (unchanged)
 (define-public (cancel-transaction (tx-id uint))
   (let
     (
@@ -192,7 +219,7 @@
   )
 )
 
-;; Getter functions (unchanged)
+;; Getter functions (some updated for multiple assets)
 (define-read-only (get-total-owners)
   (ok (var-get total-owners))
 )
@@ -205,11 +232,14 @@
   (ok block-height)
 )
 
-(define-read-only (get-spending-limit (owner principal))
-  (ok (map-get? spending-limits owner))
+(define-read-only (get-spending-limit (owner principal) (asset principal))
+  (ok (map-get? spending-limits { owner: owner, asset: asset }))
 )
 
-;; New getter function for user roles
 (define-read-only (get-user-role (user principal) (role uint))
   (ok (has-role user role))
+)
+
+(define-read-only (is-supported-asset (asset principal))
+  (ok (is-some (map-get? supported-assets asset)))
 )
