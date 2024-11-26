@@ -172,6 +172,7 @@
     (ok true)
   )
 )
+
 ;; Cancel transaction function (unchanged)
 (define-public (cancel-transaction (tx-id uint))
   (let
