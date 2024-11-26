@@ -126,17 +126,6 @@
     (ok true)
   )
 )
-
-;; New function to add supported asset
-(define-public (add-supported-asset (asset principal))
-  (begin
-    (asserts! (is-admin tx-sender) ERR_UNAUTHORIZED)
-    (asserts! (contract-call? asset get-balance CONTRACT_OWNER) ERR_UNSUPPORTED_ASSET)
-    (map-set supported-assets asset true)
-    (ok true)
-  )
-)
-
 ;; Submit transaction function (updated for multiple assets)
 (define-public (submit-transaction (asset principal) (amount uint) (to principal) (lock-until uint))
   (let
@@ -182,28 +171,6 @@
     (ok true)
   )
 )
-
-;; Execute transaction function (updated for multiple assets)
-(define-public (execute-transaction (tx-id uint))
-  (let
-    (
-      (tx (unwrap! (map-get? pending-transactions tx-id) ERR_TX_NOT_FOUND))
-      (asset-contract (contract-call? (get asset tx) get-balance CONTRACT_OWNER))
-    )
-    (asserts! (or (has-role tx-sender (var-get ROLE_ADMIN)) (has-role tx-sender (var-get ROLE_MANAGER))) ERR_UNAUTHORIZED)
-    (asserts! (is-some (map-get? owners tx-sender)) ERR_NOT_OWNER)
-    (asserts! (not (get executed tx)) ERR_ALREADY_EXECUTED)
-    (asserts! (>= (get approvals tx) MIN_SIGNATURES) ERR_INSUFFICIENT_APPROVALS)
-    (asserts! (>= block-height (get lock-until tx)) ERR_TIMELOCK_NOT_EXPIRED)
-    (asserts! (>= (unwrap! asset-contract ERR_UNSUPPORTED_ASSET) (get amount tx)) ERR_INSUFFICIENT_BALANCE)
-    (try! (contract-call? (get asset tx) transfer (get amount tx) CONTRACT_OWNER (get to tx)))
-    (map-set pending-transactions tx-id
-      (merge tx { executed: true })
-    )
-    (ok true)
-  )
-)
-
 ;; Cancel transaction function (unchanged)
 (define-public (cancel-transaction (tx-id uint))
   (let
